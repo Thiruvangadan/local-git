@@ -723,7 +723,7 @@ The Gitea configuration file was opened:
 sudo nano /etc/gitea/app.ini
 ```
 
-The following settings were added under the `[server]` section:
+The following settings were added under the `[server]` of /etc/gitea/app.ini:
 
 ```ini
 [server]
@@ -734,7 +734,7 @@ SSH_PORT = 2222
 The existing server IP configuration was retained.
 
 **Configuration explanation:**
-- `DISABLE_SSH = false: Allows SSH functionality in Gitea.
+- `DISABLE_SSH = false`: Allows SSH functionality in Gitea.
 - `START_SSH_SERVER`: Enables Gitea's built-in SSH server.
 - `SSH_PORT`: Defines the SSH port displayed in repository clone instructions.
 
@@ -771,96 +771,91 @@ This configuration allows Git clients to communicate with Gitea over SSH without
 
 ## 10. Configure SSH Authentication on Windows
 
-After enabling Gitea's built-in SSH server, the Windows host machine was configured to communicate with Gitea using SSH key-based authentication.
+Gitea supports SSH authentication, allowing users to securely clone, push, and pull repositories without entering their Gitea password for every Git operation.
 
-SSH key-based authentication allows Git clients to authenticate with the Gitea server without entering account passwords for every Git operation.
+In this setup, Windows acts as the Git client, while the Ubuntu virtual machine hosts the Gitea server.
+
+Gitea's built-in SSH server listens on port `2222`, separate from Ubuntu's OpenSSH service running on port `22`.
 
 ### 10.1 Check for Existing SSH Keys
 
-Before generating a new SSH key pair, check whether an existing key is available.
+Before generating a new SSH key, check whether an SSH key pair already exists on the Windows machine.
 
-Open Windows PowerShell and execute:
+Open PowerShell and run:
 
 ```powershell
-ls ~/.ssh
+ls "$env:USERPROFILE\.ssh"
 ```
 
-By default, OpenSSH uses standard key filenames such as:
+Look for existing public and private key files, such as:
 
-```text
-id_ed25519
-id_ed25519.pub
-```
+- `id_ed25519` — private key
+- `id_ed25519.pub` — public key
 
-If these files already exist and you want to use the same key for Gitea, you can register its public key with your Gitea account.
+If the default key does not already exist, you can use the default filename when generating a key.
 
-**A separate SSH key is not mandatory.** However, using separate keys for GitHub and Gitea can help keep authentication independent.
+However, if an existing key is already being used for another service, such as GitHub, it is better to generate a separate key for Gitea. This avoids accidentally overwriting or reusing an existing key.
 
-### 10.2 Generate a Separate SSH Key (If Required)
+### 10.2 Generate a Separate SSH Key for Gitea
 
-In this project, an existing `id_ed25519` key was already being used for GitHub authentication. Therefore, a separate key pair was generated for Gitea using a custom filename.
+Since an existing SSH key was already being used for GitHub, a separate Ed25519 key pair was generated for Gitea.
 
-The following command was executed in Windows PowerShell:
+Run the following command in PowerShell:
 
 ```powershell
 ssh-keygen -t ed25519 -C "gitea" -f "$env:USERPROFILE\.ssh\id_ed25519_gitea"
 ```
 
-**Command explanation:**
+Explanation:
 
-- `ssh-keygen`: Utility used to generate SSH key pairs.
-- `-t ed25519`: Specifies the Ed25519 key algorithm.
-- `-C "gitea"`: Adds a descriptive comment to the key.
-- `-f`: Specifies the location and filename for the generated key.
+- `ssh-keygen` — generates an SSH key pair.
+- `-t ed25519` — specifies the Ed25519 key algorithm.
+- `-C "gitea"` — adds a descriptive comment to the key.
+- `-f` — specifies the location and filename for the generated key.
 
-The command generates two files:
+When prompted for a passphrase, you can set one for additional protection or leave it empty.
 
-```text
-id_ed25519_gitea       # Private key
-id_ed25519_gitea.pub   # Public key
-```
+This generates two files:
 
-A passphrase can be configured to add protection to the private key.
+- `id_ed25519_gitea` — private key, which must remain on the Windows machine.
+- `id_ed25519_gitea.pub` — public key, which can be shared with the Gitea server.
 
-**Note:** If the default key filenames are already in use, choose a different filename rather than overwriting an existing key.
+**Important:** Never share or upload the private key. Only the public key should be added to Gitea.
 
 ### 10.3 Add the Public Key to Gitea
 
-The public key must be registered with the Gitea account.
+The generated public key must be registered with the Gitea account to allow SSH authentication.
 
-For this project, the public key file was:
+Display the public key using PowerShell:
 
-```text
-~/.ssh/id_ed25519_gitea.pub
+```powershell
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519_gitea.pub"
 ```
 
-Its contents were copied and added through the Gitea web interface:
+Copy the complete output.
 
-1. Log in to Gitea.
+Next, open the Gitea web interface and navigate to:
+
+1. Log in to your Gitea account.
 2. Open User Settings.
 3. Navigate to SSH / GPG Keys.
 4. Select Add Key.
-5. Paste the contents of the public key file.
-6. Provide a descriptive key name and save it.
+5. Enter a descriptive title, such as `Windows Gitea Client`.
+6. Paste the copied public key into the Content field.
+7. Save the key.
 
-**Important:** Only the public key (`.pub`) should be uploaded to Gitea. The private key must remain on the Windows machine.
+Gitea will now recognize the registered public key when the corresponding private key is used for authentication.
 
-### 10.4 Configure the Windows SSH Client (Optional)
+**Note:** This key is registered within Gitea. It is different from the SSH keys stored in Ubuntu's `~/.ssh/authorized_keys`, which are used for logging into a Linux user account.
 
-When using a standard SSH key filename, OpenSSH can usually discover the key automatically.
+### 10.4 Configure the Windows SSH Client
 
-However, when using a custom filename, the SSH client needs to know which private key to use.
+To avoid entering the server IP address, username, port, and private key path every time, configure an SSH host alias.
 
-This can be configured through the SSH configuration file:
+On Windows, open or create the SSH configuration file:
 
 ```text
-C:\Users\<WINDOWS_USERNAME>\.ssh\config
-```
-
-Open the file using PowerShell:
-
-```powershell
-notepad $HOME\.ssh\config
+C:\Users\<YOUR_USERNAME>\.ssh\config
 ```
 
 Add the following configuration:
@@ -871,83 +866,79 @@ Host gitea
     User git
     Port 2222
     IdentityFile ~/.ssh/id_ed25519_gitea
+    IdentitiesOnly yes
 ```
 
 Replace `<UBUNTU_IP>` with the actual IP address of the Ubuntu virtual machine.
 
-**Configuration explanation:**
+Explanation:
 
-| Setting | Purpose |
-|---|---|
-| `Host` | Defines a convenient alias for the Gitea server. |
-| `HostName` | Specifies the Ubuntu VM's IP address. |
-| `User` | Uses the Gitea SSH user `git`. |
-| `Port` | Connects through Gitea's SSH port `2222`. |
-| `IdentityFile` | Specifies the private SSH key to use. |
+- `Host gitea` — defines a shortcut name for the Gitea server.
+- `HostName` — specifies the Ubuntu VM's IP address.
+- `User git` — connects using the dedicated Gitea system user.
+- `Port 2222` — connects to Gitea's built-in SSH server.
+- `IdentityFile` — specifies the private key to use for authentication.
+- `IdentitiesOnly yes` — instructs SSH to use the explicitly configured identity rather than offering other available identities.
 
-The SSH configuration file is optional when the default key is automatically detected. It is useful when working with multiple SSH keys or custom filenames.
+After saving the configuration, the SSH alias `gitea` can be used instead of typing the complete connection details.
 
-### Alternative: Specify the SSH Key Directly
+**Alternative: Connect Without an SSH Config File**
 
-Instead of creating an SSH configuration file, a custom private key can also be specified directly using the `-i` option.
-
-For example:
+The SSH config file is optional. You can specify the private key, port, username, and server IP directly using the SSH command:
 
 ```powershell
-ssh -i "$env:USERPROFILE\.ssh\id_ed25519_ubuntu" -p 2222 git@<UBUNTU_IP>
+ssh -i "$env:USERPROFILE\.ssh\id_ed25519_gitea" -p 2222 -T git@<UBUNTU_IP>
 ```
 
-**Command explanation:**
-
-- `-i`: Specifies the private SSH key to use.
-- `-p 2222`: Specifies the Gitea SSH port.
-- `git@<UBUNTU_IP>`: Connects to the Gitea server using the `git` SSH user.
-
-This method is useful for testing or making individual SSH connections without configuring an SSH config file.
-
-The SSH configuration file is more convenient when repeatedly connecting to the same server because it allows the use of a short alias such as:
-
-```powershell
-ssh -T gitea
-```
+This is useful when you do not want to configure an SSH host alias.
 
 ### 10.5 Test SSH Authentication
 
-The SSH connection was tested from Windows PowerShell:
+After configuring the SSH client, test the connection from PowerShell:
 
 ```powershell
 ssh -T gitea
 ```
 
-The following authentication success message was received:
+If the configuration and key registration are correct, Gitea should return a successful authentication message similar to:
 
 ```text
-Hi there, user_name! You've successfully authenticated with the key named github, but Gitea does not provide shell access.
+Hi there, <USERNAME>! You've successfully authenticated with the key named <KEY_NAME>, but Gitea does not provide shell access.
 ```
 
-This confirmed that the Windows machine successfully authenticated with the Gitea server.
+This confirms that:
 
-### 10.6 Verify the SSH Key Used
+- The Windows client can reach the Gitea SSH server.
+- The SSH connection is using port `2222`.
+- Gitea recognizes the registered public key.
+- Authentication was successful.
 
-Since separate SSH keys were maintained for GitHub and Gitea, verbose SSH output was used to identify which key was being offered and accepted.
+Gitea does not provide interactive shell access through this connection. The SSH connection is intended for Git operations such as cloning, pushing, and pulling repositories.
 
-Command:
+### 10.6 Verify the SSH Key Being Used
+
+If multiple SSH keys exist on the Windows machine, the verbose SSH option can help identify which key is being offered and accepted.
+
+Run:
 
 ```powershell
 ssh -vT gitea
 ```
 
-The output confirmed that the custom `id_ed25519_gitea` key was offered and accepted by Gitea.
+Look for messages similar to:
 
-The key name `github` shown in the authentication message was its registered name in Gitea, not the local private key filename.
+```text
+Offering public key: .../id_ed25519_gitea
+Server accepts key: .../id_ed25519_gitea
+```
 
-### Result
+These messages confirm that the intended Gitea SSH key is being used.
 
-SSH key-based authentication between the Windows host and Gitea was successfully configured and tested.
+### 10.7 Result
 
-The Windows machine uses the custom `id_ed25519_ubuntu` private key to authenticate with Gitea over port `2222`, while the existing GitHub SSH key remains available for GitHub authentication.
+SSH authentication between the Windows client and the Gitea server was successfully configured.
 
-The SSH alias `gitea` can now be used for Git operations without manually specifying the server address, port and private key each time.
+The Windows machine can now authenticate with Gitea using the dedicated `id_ed25519_gitea` key pair. The `gitea` SSH alias simplifies future Git operations by eliminating the need to specify the server IP address, username, port, and private key path each time.
 
 ## Step 11 — Clone and Push to a Gitea Repository
 
@@ -988,5 +979,105 @@ The branch name may differ depending on the repository's configuration.
 Opened the repository in the Gitea web interface and confirmed that the pushed files and commit were visible.
 
 **Result:** Successfully cloned a repository from the self-hosted Gitea server and pushed local changes over SSH.
+
+## Step 12 — Post-Installation Verification
+
+After completing the installation and initial Git operations, the Gitea server was tested to verify that it remained accessible after an Ubuntu reboot and that Git operations continued to work correctly.
+
+### 12.1 Verify Gitea After Ubuntu Reboot
+
+The Ubuntu virtual machine was restarted to verify that the Gitea service could start automatically without requiring manual intervention.
+
+Run the following command on Ubuntu:
+
+```bash
+sudo reboot
+```
+
+After the virtual machine restarts, retrieve its IP address if necessary:
+
+```bash
+hostname -I
+```
+
+Open the Gitea web interface from the Windows machine:
+
+```text
+http://<UBUNTU_IP>:3000
+```
+
+Verify that the Gitea login page loads successfully.
+
+This confirms that the web interface remains accessible after the Ubuntu system restarts.
+
+### 12.2 Verify Automatic Service Startup
+
+Gitea was configured as a systemd service and enabled during the installation process.
+
+Because the Gitea web interface was accessible again after the Ubuntu reboot, the automatic service startup was verified.
+
+The service status can also be checked directly on Ubuntu using:
+
+```bash
+sudo systemctl status gitea
+```
+
+The expected service state is:
+
+```text
+Active: active (running)
+```
+
+This confirms that the Gitea service is running.
+
+### 12.3 Verify Git Operations After Reboot
+
+After confirming that Gitea was accessible, the existing repository on the Windows client was used to test Git operations again.
+
+Open the repository directory in Git Bash and run:
+
+**Check repository status**
+
+```bash
+git status
+```
+
+This displays the current working tree status and confirms that Git can access the local repository.
+
+**Pull changes from Gitea**
+
+```bash
+git pull
+```
+
+This verifies that the Windows client can communicate with the Gitea server and retrieve repository updates.
+
+**Push changes to Gitea**
+
+```bash
+git push
+```
+
+This verifies that the Windows client can authenticate with Gitea and push commits to the remote repository.
+
+If there are no new commits to push, Git may return:
+
+```text
+Everything up-to-date
+```
+
+This is expected when the local and remote branches are already synchronized.
+
+### 12.4 Final Verification Result
+
+The following checks were completed successfully:
+
+- Gitea web interface remained accessible after the Ubuntu virtual machine restarted.
+- Gitea started automatically through its systemd service.
+- SSH authentication from the Windows client continued to work.
+- Git repository status could be checked successfully.
+- Git pull and push operations worked after the reboot.
+
+These checks confirmed that the self-hosted Git platform was operational beyond the initial installation and could be accessed again after a system restart.
 
 
