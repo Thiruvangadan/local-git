@@ -415,28 +415,176 @@ ls -ld /var/lib/gitea /var/lib/gitea/custom /var/lib/gitea/data /var/lib/gitea/l
 
 **Installation Result:** The required Gitea directories were created, and ownership was assigned to the dedicated `git` user and group.
 
-## 7. Configure SQLite and Gitea
+## 7. Configure Gitea as a systemd Service
+
+After installing the Gitea binary and preparing its directories, the next step is to configure Gitea as a systemd service.
+
+### 7.1 What is systemd?
+
+`systemd` is the service manager used by Ubuntu to manage system services and background processes.
+
+We configure Gitea as a systemd service so that:
+
+- Gitea can run in the background without keeping a terminal open.
+- The application can start automatically when Ubuntu boots.
+- We can start, stop and restart Gitea using systemctl commands.
+- We can monitor the application's status and logs.
+
+### 7.2 Create the Gitea Service File
+
+Systemd service files are commonly stored in:
+
+```text
+/etc/systemd/system/
+```
+
+Create the Gitea service file:
+
+```bash
+sudo nano /etc/systemd/system/gitea.service
+```
+
+Add the following configuration:
+
+```ini
+[Unit]
+Description=Gitea (Git with a cup of tea)
+After=syslog.target
+After=network.target
+
+[Service]
+RestartSec=2s
+Type=simple
+User=git
+Group=git
+WorkingDirectory=/var/lib/gitea/
+ExecStart=/usr/local/bin/gitea web --config /etc/gitea/app.ini
+Restart=always
+Environment=USER=git HOME=/home/git GITEA_WORK_DIR=/var/lib/gitea
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Save the file.
+
+**Why do we use this configuration?**
+
+It tells systemd how to run the Gitea application, which Linux user should run it, where its working directory is located and what command should be executed.
+
+### 7.3 Understanding the Service Configuration
+
+| Setting | Purpose |
+|---|---|
+| `[Unit]` | Defines service information and dependencies |
+| `Description` | Describes the service |
+| `After` | Specifies startup ordering dependencies |
+| `[Service]` | Defines how the application runs |
+| `Type=simple` | Runs Gitea as a foreground process managed by systemd |
+| `User=git` | Runs Gitea using the dedicated git user |
+| `Group=git` | Runs Gitea using the git group |
+| `WorkingDirectory` | Specifies the application's working directory |
+| `ExecStart` | Specifies the command used to start Gitea |
+| `Restart=always` | Configures automatic restarting if the process stops |
+| `RestartSec=2s` | Waits two seconds before restarting |
+| `Environment` | Defines environment variables for the service |
+| `[Install]` | Defines how the service is enabled |
+| `WantedBy=multi-user.target` | Allows the service to start during normal multi-user system startup |
+
+### 7.4 Reload systemd Configuration
+
+```bash
+sudo systemctl daemon-reload
+```
+
+**Why do we use this command?**
+
+After creating or modifying a service file, systemd needs to reload its configuration so it recognizes the changes.
+
+### 7.5 Enable Gitea Service
+
+```bash
+sudo systemctl enable gitea
+```
+
+**Why?**
+
+Enables automatic startup of Gitea when Ubuntu boots.
+
+### 7.6 Start Gitea Service
+
+```bash
+sudo systemctl start gitea
+```
+
+**Why?**
+
+Starts Gitea immediately in the background without requiring a system reboot.
+
+### 7.7 Verify Service Status
+
+```bash
+sudo systemctl status gitea
+```
+
+The expected service state is:
+
+```text
+Active: active (running)
+```
+
+This indicates that systemd successfully started the Gitea process.
+
+### 7.8 Useful systemctl Commands
+
+| Command | Purpose |
+|---|---|
+| `systemctl start gitea` | Starts Gitea |
+| `systemctl stop gitea` | Stops Gitea |
+| `systemctl restart gitea` | Restarts Gitea |
+| `systemctl enable gitea` | Enables automatic startup |
+| `systemctl disable gitea` | Disables automatic startup |
+| `systemctl status gitea` | Checks service status |
+| `journalctl -u gitea` | Displays Gitea service logs |
+
+**Installation Result:** Gitea was configured as a systemd-managed service, allowing it to run in the background and start automatically during Ubuntu startup.
+
+## 8. Initial Gitea Installation and Configuration
+
+After configuring and starting Gitea as a systemd service, the initial installation was completed through Gitea's web interface.
+
+### 8.1 Access the Gitea Web Interface
+
+First, obtain the IP address of the Ubuntu virtual machine:
+
+```bash
+hostname -I
+```
+
+From the Windows host machine, open a browser and access:
+
+```text
+http://<UBUNTU_IP>:3000
+```
+
+Replace `<UBUNTU_IP>` with the actual IP address of the Ubuntu virtual machine.
+
+The Gitea initial installation page should appear.
+
+### 8.2 Configure SQLite3
 
 Gitea requires a database to store application information such as user accounts, repository metadata, settings and issues.
 
-For this project, SQLite3 was selected through Gitea's browser-based initial installation page.
+For this project, SQLite3 was selected through Gitea's browser-based installation page.
 
-### 7.1 Why SQLite3?
-
-SQLite is a lightweight relational database that stores information in a local database file instead of requiring a separate database server.
-
-**Why did we choose SQLite?**
+**Why SQLite3?**
 
 - Lightweight and easy to configure.
 - Does not require a separate database server.
-- Stores database information in a local file.
+- Stores information in a local database file.
 - Suitable for a small personal Gitea deployment.
 
 Other database options include PostgreSQL and MySQL/MariaDB, which can be considered for larger deployments.
-
-### 7.2 Configure SQLite Through the Web Installer
-
-After starting Gitea and accessing its web interface, the initial installation page provides database configuration options.
 
 The following settings were selected:
 
@@ -445,18 +593,31 @@ The following settings were selected:
 | Database Type | SQLite3 |
 | Database Path | `/var/lib/gitea/data/gitea.db` |
 
-**Why these settings?**
-
-- **Database Type:** Selects SQLite3 as the database backend.
-- **Database Path:** Specifies where Gitea stores its SQLite database file.
-
 The database file is created and managed by Gitea during initialization.
 
-### 7.3 Understand the Gitea Configuration File
+### 8.3 Configure the Server
+
+The following server settings were configured during the initial installation:
+
+| Setting | Configuration |
+|---|---|
+| Server Domain | `<UBUNTU_IP>` |
+| HTTP Listen Port | `3000` |
+| Application Base URL | `http://<UBUNTU_IP>:3000/` |
+
+The HTTP port is used to access the Gitea web interface from the browser.
+
+### 8.4 Create the Administrator Account
+
+An administrator account was created through the initial installation page.
+
+This account provides access to Gitea administration, user management and repository management.
+
+### 8.5 Understand the Gitea Configuration File
 
 Gitea uses a configuration file named `app.ini` to store application settings.
 
-Location:
+**Configuration file location:**
 
 ```text
 /etc/gitea/app.ini
@@ -472,11 +633,7 @@ DB_TYPE = sqlite3
 PATH = /var/lib/gitea/data/gitea.db
 ```
 
-### 7.4 Configure Server Settings
-
-The server configuration specifies how clients access the Gitea application.
-
-Example:
+Example server configuration:
 
 ```ini
 [server]
@@ -489,15 +646,17 @@ Replace `<UBUNTU_IP>` with the actual IP address of the Ubuntu virtual machine.
 
 | Setting | Purpose |
 |---|---|
-| `DOMAIN` | Defines the hostname or IP address used to access Gitea |
-| `HTTP_PORT` | Specifies the port used by the Gitea web interface |
-| `ROOT_URL` | Defines the base URL used when generating application links |
+| `DB_TYPE` | Specifies the database backend used by Gitea. |
+| `PATH` | Defines the location of the SQLite database file. |
+| `DOMAIN` | Defines the hostname or IP address used to access Gitea. |
+| `HTTP_PORT` | Specifies the port used by the web interface. |
+| `ROOT_URL` | Defines the base URL used when generating application links. |
 
-Port `3000` is used for the Gitea web interface in this project.
+The browser-based installer generates the initial configuration. Additional settings can be adjusted in `app.ini` when required.
 
-### 7.5 Set Configuration File Permissions
+### 8.6 Set Configuration File Permissions
 
-After the initial installation creates `app.ini`, run:
+After the initial installation creates `app.ini`, configure its ownership and permissions:
 
 ```bash
 sudo chown -R git:git /etc/gitea
@@ -505,13 +664,25 @@ sudo chmod 750 /etc/gitea
 sudo chmod 640 /etc/gitea/app.ini
 ```
 
-**Why do we use these commands?**
+**Why are these commands used?**
 
-- `chown`: Assigns ownership of the configuration directory to the Gitea user and group.
-- `chmod 750`: Restricts access to the configuration directory.
+- `chown`: Assigns ownership of the configuration directory and its contents to the Gitea user and group.
+- `chmod 750`: Allows the owner full access, the group read and execute access, and denies access to other users.
 - `chmod 640`: Allows the owner to read and modify the configuration file while the group can read it.
 
-### 7.6 Important File Locations
+These permissions help protect Gitea's configuration from unauthorized access.
+
+### 8.7 Verify the SQLite Database
+
+Check whether the SQLite database file was created successfully:
+
+```bash
+sudo ls -lh /var/lib/gitea/data/gitea.db
+```
+
+The database file should be present at the specified location.
+
+### 8.8 Important Gitea File Locations
 
 | Component | Location |
 |---|---|
@@ -521,4 +692,79 @@ sudo chmod 640 /etc/gitea/app.ini
 | Customizations | `/var/lib/gitea/custom/` |
 | Application logs | `/var/lib/gitea/log/` |
 
-**Installation Result:** SQLite3 was selected through Gitea's browser-based installation page. Gitea uses the local SQLite database file to store application information, while `app.ini` maintains the application's configuration.
+### Installation Result
+
+Gitea was successfully initialized using SQLite3 through the browser-based installation page. The administrator account was created, and the application configuration and file permissions were verified.
+
+The Gitea web interface was accessible from the Windows host machine through the Ubuntu virtual machine's IP address and port `3000`.
+:
+## 9. Configure Gitea Built-in SSH Server
+
+Gitea supports SSH-based Git operations, allowing users to clone, push and pull repositories securely without relying on HTTP authentication for Git transport.
+
+For this project, Gitea's built-in SSH server was configured to use port `2222`.
+
+### 9.1 Why Use a Separate SSH Port?
+
+Ubuntu already runs its OpenSSH service on port `22`, which is used for remote Linux administration.
+
+To avoid a port conflict, Gitea's built-in SSH server was configured to use port `2222`.
+
+| Service | Port | Purpose |
+|---|---:|---|
+| Ubuntu OpenSSH | `22` | Remote administration |
+| Gitea SSH Server | `2222` | Git repository operations |
+
+### 9.2 Update Gitea Configuration
+
+The Gitea configuration file was opened:
+
+```bash
+sudo nano /etc/gitea/app.ini
+```
+
+The following settings were added under the `[server]` section:
+
+```ini
+[server]
+DISABLE_SSH = false
+START_SSH_SERVER = true
+SSH_PORT = 2222
+```
+The existing server IP configuration was retained.
+
+**Configuration explanation:**
+- `DISABLE_SSH = false: Allows SSH functionality in Gitea.
+- `START_SSH_SERVER`: Enables Gitea's built-in SSH server.
+- `SSH_PORT`: Defines the SSH port displayed in repository clone instructions.
+
+### 9.3 Restart the Gitea Service
+
+After updating the configuration, the Gitea service was restarted:
+
+```bash
+sudo systemctl restart gitea
+sudo systemctl status gitea
+```
+
+The service status was checked to confirm that Gitea restarted successfully.
+
+### 9.4 Verify the SSH Port
+
+The following command was used to check whether Gitea was listening on port `2222`:
+
+```bash
+sudo ss -tulpn | grep 2222
+```
+
+If UFW is enabled, the port must also be allowed through the firewall:
+
+```bash
+sudo ufw allow 2222/tcp
+```
+
+### Result
+
+Gitea's built-in SSH server was configured to listen on port `2222`, while Ubuntu's OpenSSH service continued using port `22`.
+
+This configuration allows Git clients to communicate with Gitea over SSH without interfering with remote Ubuntu administration.
