@@ -107,7 +107,7 @@ The SSH alias `gitea` uses the configured Ubuntu IP address, port 2222, and the 
 
 **Problem:** The default Ed25519 SSH key filename was already being used for another service.
 
-**Solution:** Generated a separate key pair named `id_ed25519_ubuntu` and registered its public key in Gitea.
+**Solution:** Generated a separate key pair named `id_ed25519_gitea` and registered its public key in Gitea.
 
 ### SSH Client Configuration
 
