@@ -21,8 +21,6 @@ The following tools and technologies were used during implementation.
 | systemd | Ubuntu service manager | Manages Gitea as a background service |
 | VMware NAT (VMnet8) | NAT networking | Provides network connectivity between the host and VM |
 
-*Note: Exact versions for tools not listed with a version above can be checked on the respective machines. The table intentionally avoids assuming versions that were not recorded during setup.*
-
 ## Tools and Their Roles
 
 ### 1. VMware Workstation Pro
