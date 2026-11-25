@@ -768,3 +768,225 @@ sudo ufw allow 2222/tcp
 Gitea's built-in SSH server was configured to listen on port `2222`, while Ubuntu's OpenSSH service continued using port `22`.
 
 This configuration allows Git clients to communicate with Gitea over SSH without interfering with remote Ubuntu administration.
+
+## 10. Configure SSH Authentication on Windows
+
+After enabling Gitea's built-in SSH server, the Windows host machine was configured to communicate with Gitea using SSH key-based authentication.
+
+SSH key-based authentication allows Git clients to authenticate with the Gitea server without entering account passwords for every Git operation.
+
+### 10.1 Check for Existing SSH Keys
+
+Before generating a new SSH key pair, check whether an existing key is available.
+
+Open Windows PowerShell and execute:
+
+```powershell
+ls ~/.ssh
+```
+
+By default, OpenSSH uses standard key filenames such as:
+
+```text
+id_ed25519
+id_ed25519.pub
+```
+
+If these files already exist and you want to use the same key for Gitea, you can register its public key with your Gitea account.
+
+**A separate SSH key is not mandatory.** However, using separate keys for GitHub and Gitea can help keep authentication independent.
+
+### 10.2 Generate a Separate SSH Key (If Required)
+
+In this project, an existing `id_ed25519` key was already being used for GitHub authentication. Therefore, a separate key pair was generated for Gitea using a custom filename.
+
+The following command was executed in Windows PowerShell:
+
+```powershell
+ssh-keygen -t ed25519 -C "gitea" -f "$env:USERPROFILE\.ssh\id_ed25519_gitea"
+```
+
+**Command explanation:**
+
+- `ssh-keygen`: Utility used to generate SSH key pairs.
+- `-t ed25519`: Specifies the Ed25519 key algorithm.
+- `-C "gitea"`: Adds a descriptive comment to the key.
+- `-f`: Specifies the location and filename for the generated key.
+
+The command generates two files:
+
+```text
+id_ed25519_gitea       # Private key
+id_ed25519_gitea.pub   # Public key
+```
+
+A passphrase can be configured to add protection to the private key.
+
+**Note:** If the default key filenames are already in use, choose a different filename rather than overwriting an existing key.
+
+### 10.3 Add the Public Key to Gitea
+
+The public key must be registered with the Gitea account.
+
+For this project, the public key file was:
+
+```text
+~/.ssh/id_ed25519_gitea.pub
+```
+
+Its contents were copied and added through the Gitea web interface:
+
+1. Log in to Gitea.
+2. Open User Settings.
+3. Navigate to SSH / GPG Keys.
+4. Select Add Key.
+5. Paste the contents of the public key file.
+6. Provide a descriptive key name and save it.
+
+**Important:** Only the public key (`.pub`) should be uploaded to Gitea. The private key must remain on the Windows machine.
+
+### 10.4 Configure the Windows SSH Client (Optional)
+
+When using a standard SSH key filename, OpenSSH can usually discover the key automatically.
+
+However, when using a custom filename, the SSH client needs to know which private key to use.
+
+This can be configured through the SSH configuration file:
+
+```text
+C:\Users\<WINDOWS_USERNAME>\.ssh\config
+```
+
+Open the file using PowerShell:
+
+```powershell
+notepad $HOME\.ssh\config
+```
+
+Add the following configuration:
+
+```sshconfig
+Host gitea
+    HostName <UBUNTU_IP>
+    User git
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519_gitea
+```
+
+Replace `<UBUNTU_IP>` with the actual IP address of the Ubuntu virtual machine.
+
+**Configuration explanation:**
+
+| Setting | Purpose |
+|---|---|
+| `Host` | Defines a convenient alias for the Gitea server. |
+| `HostName` | Specifies the Ubuntu VM's IP address. |
+| `User` | Uses the Gitea SSH user `git`. |
+| `Port` | Connects through Gitea's SSH port `2222`. |
+| `IdentityFile` | Specifies the private SSH key to use. |
+
+The SSH configuration file is optional when the default key is automatically detected. It is useful when working with multiple SSH keys or custom filenames.
+
+### Alternative: Specify the SSH Key Directly
+
+Instead of creating an SSH configuration file, a custom private key can also be specified directly using the `-i` option.
+
+For example:
+
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\id_ed25519_ubuntu" -p 2222 git@<UBUNTU_IP>
+```
+
+**Command explanation:**
+
+- `-i`: Specifies the private SSH key to use.
+- `-p 2222`: Specifies the Gitea SSH port.
+- `git@<UBUNTU_IP>`: Connects to the Gitea server using the `git` SSH user.
+
+This method is useful for testing or making individual SSH connections without configuring an SSH config file.
+
+The SSH configuration file is more convenient when repeatedly connecting to the same server because it allows the use of a short alias such as:
+
+```powershell
+ssh -T gitea
+```
+
+### 10.5 Test SSH Authentication
+
+The SSH connection was tested from Windows PowerShell:
+
+```powershell
+ssh -T gitea
+```
+
+The following authentication success message was received:
+
+```text
+Hi there, user_name! You've successfully authenticated with the key named github, but Gitea does not provide shell access.
+```
+
+This confirmed that the Windows machine successfully authenticated with the Gitea server.
+
+### 10.6 Verify the SSH Key Used
+
+Since separate SSH keys were maintained for GitHub and Gitea, verbose SSH output was used to identify which key was being offered and accepted.
+
+Command:
+
+```powershell
+ssh -vT gitea
+```
+
+The output confirmed that the custom `id_ed25519_gitea` key was offered and accepted by Gitea.
+
+The key name `github` shown in the authentication message was its registered name in Gitea, not the local private key filename.
+
+### Result
+
+SSH key-based authentication between the Windows host and Gitea was successfully configured and tested.
+
+The Windows machine uses the custom `id_ed25519_ubuntu` private key to authenticate with Gitea over port `2222`, while the existing GitHub SSH key remains available for GitHub authentication.
+
+The SSH alias `gitea` can now be used for Git operations without manually specifying the server address, port and private key each time.
+
+## Step 11 — Clone and Push to a Gitea Repository
+
+After configuring SSH authentication, I created an empty repository through the Gitea web interface and tested Git operations from the Windows client.
+
+### 11.1 Clone the Repository
+
+Used the SSH clone URL to clone the repository to the Windows machine.
+
+```bash
+git clone git@gitea:<GITEA_USERNAME>/<REPOSITORY_NAME>.git
+```
+
+This downloaded the remote repository and created a local working directory.
+
+### 11.2 Make and Commit Changes
+
+Inside the cloned repository, created or modified files and used Git to track and commit the changes.
+
+```bash
+git status
+git add .
+git commit -m "Initial commit"
+```
+
+### 11.3 Push Changes to Gitea
+
+Pushed the local commit to the remote repository.
+
+```bash
+git push origin main
+```
+
+The branch name may differ depending on the repository's configuration.
+
+### 11.4 Verify the Result
+
+Opened the repository in the Gitea web interface and confirmed that the pushed files and commit were visible.
+
+**Result:** Successfully cloned a repository from the self-hosted Gitea server and pushed local changes over SSH.
+
+
