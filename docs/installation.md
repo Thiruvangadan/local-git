@@ -949,10 +949,26 @@ After configuring SSH authentication, I created an empty repository through the 
 Used the SSH clone URL to clone the repository to the Windows machine.
 
 ```bash
-git clone git@gitea:<GITEA_USERNAME>/<REPOSITORY_NAME>.git
+git clone gitea:<GITEA_USERNAME>/<REPOSITORY_NAME>.git
 ```
 
-This downloaded the remote repository and created a local working directory.
+The `gitea` prefix refers to the SSH host alias configured in the Windows SSH client configuration file.
+
+The SSH configuration automatically provides the server IP address, Git username, port number, and private key location. Therefore, these details do not need to be specified in the clone command.
+
+The repository path follows this format:
+
+```bash
+git clone gitea:<GITEA_USERNAME>/<REPOSITORY_NAME>.git
+```
+
+**Alternative:** The repository can also be cloned using the complete SSH URL without relying on the configured host alias:
+
+```bash
+git clone ssh://git@<UBUNTU_IP>:2222/<GITEA_USERNAME>/<REPOSITORY_NAME>.git
+```
+
+Both methods use Gitea's built-in SSH server on port `2222`.
 
 ### 11.2 Make and Commit Changes
 
