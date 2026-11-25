@@ -58,6 +58,28 @@ The VMware virtual machine uses NAT networking. This allows the Windows host to 
 - Gitea configured as a systemd service
 - Automatic service startup after Ubuntu reboot
 
+## Project Screenshots
+
+The following screenshots demonstrate the deployed Gitea instance, repository management, SSH authentication, and Git operations.
+
+### Gitea Interface
+
+![Gitea Dashboard](artifacts/screenshots/gitea-dashboard.png)
+
+### Repository Management
+
+![Gitea Repository](artifacts/screenshots/repository-page.png)
+
+### Server and SSH Configuration
+
+![Gitea Service](artifacts/screenshots/gitea-service.png)
+
+![SSH Authentication](artifacts/screenshots/ssh-authentication.png)
+
+### Git Operations and Verification
+
+![Git Operations](artifacts/screenshots/git-operations.png)
+
 ## Git Operations
 
 The following operations were tested successfully from the Windows client:
